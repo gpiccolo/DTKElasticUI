@@ -98,6 +98,9 @@ declare module elasticui.filters {
     }
 }
 declare module elasticui.controllers {
+    var controllers: ng.IModule;
+}
+declare module elasticui.controllers {
     interface IAggregationScope extends IIndexScope {
         aggResult: any;
         aggregation: {
@@ -212,8 +215,10 @@ declare module elasticui.services {
         client: any;
         private esFactory;
         private host;
+        private username;
+        private password;
         static $inject: string[];
-        constructor(esFactory: any, euiHost: any);
+        constructor(esFactory: any, euiHost: any, euiUser: any, euiPassword: any);
         setHost(host: any): boolean;
     }
 }

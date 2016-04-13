@@ -453,7 +453,13 @@ var elasticui;
         filters.filters.filter('euiTimestamp', TimestampFilter);
     })(filters = elasticui.filters || (elasticui.filters = {}));
 })(elasticui || (elasticui = {}));
-angular.module('elasticui.controllers', []).controller(elasticui.controllers);
+var elasticui;
+(function (elasticui) {
+    var controllers;
+    (function (_controllers) {
+        _controllers.controllers = angular.module('elasticui.controllers', []);
+    })(controllers = elasticui.controllers || (elasticui.controllers = {}));
+})(elasticui || (elasticui = {}));
 var elasticui;
 (function (elasticui) {
     var controllers;
@@ -826,22 +832,35 @@ var elasticui;
     var services;
     (function (services) {
         var ElasticService = (function () {
-            function ElasticService(esFactory, euiHost) {
+            function ElasticService(esFactory, euiHost, euiUser, euiPassword) {
                 this.esFactory = esFactory;
+                this.username = euiUser || '';
+                this.password = euiPassword || '';
                 this.setHost(euiHost);
             }
             ElasticService.prototype.setHost = function (host) {
                 if (host === this.host) {
                     return false;
                 }
-                this.host = host;
+                //Add basic auth if username and password provided
+                if (this.username && this.password) {
+                    this.host = [
+                        {
+                            host: host,
+                            auth: this.username + ':' + this.password
+                        }
+                    ];
+                }
+                else {
+                    this.host = host;
+                }
                 this.client = this.esFactory({
-                    host: host,
+                    host: this.host,
                     calcDeadTimeout: "flat"
                 });
                 return true;
             };
-            ElasticService.$inject = ['esFactory', 'euiHost'];
+            ElasticService.$inject = ['esFactory', 'euiHost', 'euiUser', 'euiPassword'];
             return ElasticService;
         })();
         services.ElasticService = ElasticService;

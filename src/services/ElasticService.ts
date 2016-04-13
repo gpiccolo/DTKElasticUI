@@ -3,10 +3,15 @@
         public client;
         private esFactory;
         private host;
+        private username;
+        private password;
 
-        static $inject = ['esFactory', 'euiHost'];
-        constructor(esFactory, euiHost) {
+        static $inject = ['esFactory', 'euiHost', 'euiUser', 'euiPassword'];
+
+        constructor(esFactory, euiHost, euiUser, euiPassword) {
             this.esFactory = esFactory;
+            this.username = euiUser || '';
+            this.password = euiPassword || '';
             this.setHost(euiHost);
         }
 
@@ -14,10 +19,21 @@
             if (host === this.host) {
                 return false;
             }
+            //Add basic auth if username and password provided
+            if (this.username && this.password) {
+                this.host = [
+                    {
+                        host: host,
+                        auth: this.username + ':' + this.password
+                    }
+                ]
+            }
+            else {
+                this.host = host;
+            }
 
-            this.host = host;
             this.client = this.esFactory({
-                host: host,
+                host: this.host,
                 calcDeadTimeout: "flat"
             });
 

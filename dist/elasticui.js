@@ -598,7 +598,7 @@ var elasticui;
     var controllers;
     (function (controllers) {
         var IndexController = (function () {
-            function IndexController($scope, $timeout, $window, es, $rootScope) {
+            function IndexController($scope, $timeout, $window, es, $rootScope, $http, $q) {
                 var _this = this;
                 this.filters = new elasticui.util.FilterCollection();
                 this.indexVM = {
@@ -626,6 +626,8 @@ var elasticui;
                 this.refreshPromise = null;
                 this.es = es;
                 this.$rootScope = $rootScope;
+                this.http = $http;
+                this.q = $q;
                 $scope.indexVM = this.indexVM;
                 $scope.ejs = $window.ejs; // so we can use ejs in attributes etc. TODO: better to have a ejs service instead of loading from window
                 $scope.filters = this.filters;
@@ -669,6 +671,9 @@ var elasticui;
                     request.agg(agg);
                 }
                 // apply search filters to the request
+                var queryWrapper = {
+                    request: {}
+                };
                 var combinedFilter = this.filters.getAsFilter();
                 if (combinedFilter != null) {
                     request.filter(combinedFilter);
@@ -686,13 +691,23 @@ var elasticui;
                     request.highlight(this.indexVM.highlight);
                 }
                 //console.log("request to ES");
-                var res = this.es.client.search({
-                    index: this.indexVM.index,
-                    size: this.indexVM.pageSize,
-                    from: this.indexVM.pageSize * (this.indexVM.page - 1),
-                    body: request
+                queryWrapper.request = request;
+                /*var res = this.es.client.search({
+                 index: this.indexVM.index,
+                 size: this.indexVM.pageSize,
+                 from: this.indexVM.pageSize * (this.indexVM.page-1),
+                 body: queryWrapper
+                 });
+    
+                 console.log(res);*/
+                var defer = this.q.defer();
+                var res = this.http.post('http://api.datatoknowledge.it/search/search', queryWrapper).success(function (data) {
+                    defer.resolve(data);
+                }).error(function (error) {
+                    defer.reject(error);
                 });
-                return res;
+                console.log(res);
+                return defer.promise;
             };
             IndexController.prototype.onError = function (err) {
                 this.$rootScope.$broadcast('eui-search-error', err);
@@ -753,7 +768,7 @@ var elasticui;
                 }
                 this.indexVM.loading = false;
             };
-            IndexController.$inject = ['$scope', '$timeout', '$window', 'es', '$rootScope'];
+            IndexController.$inject = ['$scope', '$timeout', '$window', 'es', '$rootScope', '$http', '$q'];
             return IndexController;
         })();
         controllers.IndexController = IndexController;

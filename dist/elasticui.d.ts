@@ -169,12 +169,14 @@ declare module elasticui.controllers {
 declare module elasticui.controllers {
     class IndexController {
         private es;
+        private http;
+        private q;
         private $rootScope;
         filters: util.FilterCollection;
         indexVM: IIndexViewModel;
         loaded(): void;
         static $inject: string[];
-        constructor($scope: any, $timeout: any, $window: any, es: services.ElasticService, $rootScope: any);
+        constructor($scope: any, $timeout: any, $window: any, es: services.ElasticService, $rootScope: any, $http: any, $q: any);
         private getSearchPromise();
         private searchPromise;
         private refreshPromise;

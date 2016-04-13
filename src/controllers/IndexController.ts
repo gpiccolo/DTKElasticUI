@@ -1,12 +1,15 @@
 module elasticui.controllers {
+    import IHttpService = ng.IHttpService;
+    import IQService = ng.IQService;
     export class IndexController {
-        private es: services.ElasticService;
-
-        private $rootScope: any;
+        private es:services.ElasticService;
+        private http:IHttpService;
+        private q:IQService;
+        private $rootScope:any;
 
         public filters = new elasticui.util.FilterCollection();
 
-        public indexVM: IIndexViewModel = {
+        public indexVM:IIndexViewModel = {
             host: null,
             query: null,
             sort: null,
@@ -16,13 +19,13 @@ module elasticui.controllers {
             loaded: false,
             page: 1,
             index: null,
-            loading:false,
+            loading: false,
             pageCount: 0,
             pageSize: 10,
             results: null,
-            refresh: (softRefresh: boolean = true) => this.refresh(softRefresh),
+            refresh: (softRefresh:boolean = true) => this.refresh(softRefresh),
             error: null,
-            autoLoad:true
+            autoLoad: true
         };
 
         public loaded() {
@@ -35,20 +38,36 @@ module elasticui.controllers {
             }
         }
 
-        static $inject = ['$scope', '$timeout', '$window', 'es', '$rootScope'];
-        constructor($scope, $timeout, $window, es: services.ElasticService, $rootScope) {
+        static $inject = ['$scope', '$timeout', '$window', 'es', '$rootScope', '$http', '$q'];
+
+        constructor($scope, $timeout, $window, es:services.ElasticService, $rootScope, $http, $q) {
             this.es = es;
             this.$rootScope = $rootScope;
+            this.http = $http;
+            this.q = $q;
 
             $scope.indexVM = this.indexVM;
             $scope.ejs = $window.ejs; // so we can use ejs in attributes etc. TODO: better to have a ejs service instead of loading from window
             $scope.filters = this.filters;
-            $scope.$watchCollection('indexVM.filters.ejsObjects', () => { this.indexVM.page = 1; this.search() });
+            $scope.$watchCollection('indexVM.filters.ejsObjects', () => {
+                this.indexVM.page = 1;
+                this.search()
+            });
             $scope.$watchCollection('indexVM.aggregationProviders.objects', () => this.search());
 
-            $scope.$watch('indexVM.host', () => { if (this.indexVM.host != null && es.setHost(this.indexVM.host)) { this.search(); } });
-            $scope.$watch('indexVM.sort',() => { this.indexVM.page = 1; this.search() });
-            $scope.$watch('indexVM.pageSize',() => { this.indexVM.page = 1; this.search() });
+            $scope.$watch('indexVM.host', () => {
+                if (this.indexVM.host != null && es.setHost(this.indexVM.host)) {
+                    this.search();
+                }
+            });
+            $scope.$watch('indexVM.sort', () => {
+                this.indexVM.page = 1;
+                this.search()
+            });
+            $scope.$watch('indexVM.pageSize', () => {
+                this.indexVM.page = 1;
+                this.search()
+            });
             $scope.$watch('indexVM.page', () => this.search());
             $scope.$watch('indexVM.index', () => this.search());
             $scope.$watch('indexVM.query', () => this.search());
@@ -60,6 +79,7 @@ module elasticui.controllers {
         private getSearchPromise() {
             var request = ejs.Request();
 
+
             for (var i = 0; i < this.indexVM.aggregationProviders.objects.length; i++) {
                 var provider = this.indexVM.aggregationProviders.objects[i];
                 var agg = provider(this.filters.ejsObjects);
@@ -67,6 +87,9 @@ module elasticui.controllers {
             }
 
             // apply search filters to the request
+            var queryWrapper = {
+                request: {}
+            };
             var combinedFilter = this.filters.getAsFilter();
             if (combinedFilter != null) {
                 request.filter(combinedFilter);
@@ -87,15 +110,26 @@ module elasticui.controllers {
             }
 
             //console.log("request to ES");
+            queryWrapper.request = request;
+            /*var res = this.es.client.search({
+             index: this.indexVM.index,
+             size: this.indexVM.pageSize,
+             from: this.indexVM.pageSize * (this.indexVM.page-1),
+             body: queryWrapper
+             });
 
-            var res = this.es.client.search({
-                index: this.indexVM.index,
-                size: this.indexVM.pageSize,
-                from: this.indexVM.pageSize * (this.indexVM.page-1),
-                body: request
+             console.log(res);*/
+            var defer = this.q.defer();
+            var res = this.http.post('http://api.datatoknowledge.it/search/search', queryWrapper).success(function (data) {
+                    defer.resolve(data);
+                }
+            ).error(function (error) {
+                defer.reject(error);
             });
 
-            return res;
+            console.log(res);
+
+            return defer.promise;
         }
 
 
@@ -121,7 +155,7 @@ module elasticui.controllers {
                 var promiseToAbort = this.searchPromise;
                 this.searchPromise = null;
                 promiseToAbort.abort();
-            }  
+            }
 
             this.indexVM.loading = true;
             this.searchPromise = this.getSearchPromise();
@@ -137,7 +171,7 @@ module elasticui.controllers {
             });
         }
 
-        public refresh(softRefresh: boolean = true) {
+        public refresh(softRefresh:boolean = true) {
             if (!this.indexVM.loaded || !this.indexVM.index || this.searchPromise != null) {
                 return;
             }
@@ -155,7 +189,7 @@ module elasticui.controllers {
             });
         }
 
-        private onResult(body, updateOnlyIfCountChanged: boolean = false) {
+        private onResult(body, updateOnlyIfCountChanged:boolean = false) {
             if (!updateOnlyIfCountChanged || this.indexVM.results == null || this.indexVM.results.hits.total != body.hits.total) {
                 this.indexVM.results = body;
                 this.indexVM.pageCount = Math.ceil(this.indexVM.results.hits.total / this.indexVM.pageSize);

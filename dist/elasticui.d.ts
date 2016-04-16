@@ -168,6 +168,8 @@ declare module elasticui.controllers {
 }
 declare module elasticui.controllers {
     class IndexController {
+        private esHost;
+        private angular;
         private es;
         private http;
         private q;
@@ -176,7 +178,7 @@ declare module elasticui.controllers {
         indexVM: IIndexViewModel;
         loaded(): void;
         static $inject: string[];
-        constructor($scope: any, $timeout: any, $window: any, es: services.ElasticService, $rootScope: any, $http: any, $q: any);
+        constructor($scope: any, $timeout: any, $window: any, es: services.ElasticService, $rootScope: any, $http: any, $q: any, euiHost: any);
         private getSearchPromise();
         private searchPromise;
         private refreshPromise;

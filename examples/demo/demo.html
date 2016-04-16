@@ -30,9 +30,9 @@
     <script>
         angular
                 .module('tutorial', ['elasticui'])
-                .constant('euiHost', 'api.datatoknowledge.it') // ACTION: change to cluster address
-                .constant('euiUser', '')
-                .constant('euiPassword', '');
+                .constant('euiHost', 'http://api.datatoknowledge.it/search/search') // ACTION: change to cluster address
+                   .constant('euiUser', '')
+                   .constant('euiPassword', '');
     </script>
 </head>
 <body ng-app="tutorial" eui-index="'search'"><!-- ACTION: change to index name -->
@@ -42,12 +42,13 @@
     <div class="row">
         <div class="col-xs-3 sidebar">
             <h3>Search</h3>
-            <eui-searchbox field="'book'"></eui-searchbox> <!-- ACTION: change to field to search on -->
+            <!--<eui-searchbox field="'title'"></eui-searchbox> &lt;!&ndash; ACTION: change to field to search on &ndash;&gt;-->
+            <input type="text" eui-query="ejs.MultiMatchQuery(['title','description'],querystring)" ng-model="querystring" eui-enabled="querystring.length" />
             <h3>Single select facet</h3>
-            <eui-singleselect field="'chapter'" size="5"></eui-singleselect>
+            <eui-singleselect field="'keywords'" size="5"></eui-singleselect>
             <!-- ACTION: change to field to use as facet -->
             <h3>Multi select facet</h3>
-            <eui-checklist field="'section'" size="10"></eui-checklist>
+            <eui-checklist field="'keywords'" size="10"></eui-checklist>
             <!-- ACTION: change to field to use as facet -->
             <h3>Results Per Page</h3>
             <select ng-model="indexVM.pageSize">

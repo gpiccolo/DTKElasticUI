@@ -1,7 +1,11 @@
 module elasticui.controllers {
     import IHttpService = ng.IHttpService;
     import IQService = ng.IQService;
+
+    import IAngularStatic = ng.IAngularStatic;
     export class IndexController {
+        private esHost: any;
+        private angular:IAngularStatic;
         private es:services.ElasticService;
         private http:IHttpService;
         private q:IQService;
@@ -38,13 +42,14 @@ module elasticui.controllers {
             }
         }
 
-        static $inject = ['$scope', '$timeout', '$window', 'es', '$rootScope', '$http', '$q'];
+        static $inject = ['$scope', '$timeout', '$window', 'es', '$rootScope', '$http', '$q', 'euiHost'];
 
-        constructor($scope, $timeout, $window, es:services.ElasticService, $rootScope, $http, $q) {
+        constructor($scope, $timeout, $window, es:services.ElasticService, $rootScope, $http, $q, euiHost) {
             this.es = es;
             this.$rootScope = $rootScope;
             this.http = $http;
             this.q = $q;
+            this.esHost = euiHost || '';
 
             $scope.indexVM = this.indexVM;
             $scope.ejs = $window.ejs; // so we can use ejs in attributes etc. TODO: better to have a ejs service instead of loading from window
@@ -110,26 +115,46 @@ module elasticui.controllers {
             }
 
             //console.log("request to ES");
-            queryWrapper.request = request;
-            /*var res = this.es.client.search({
-             index: this.indexVM.index,
-             size: this.indexVM.pageSize,
-             from: this.indexVM.pageSize * (this.indexVM.page-1),
-             body: queryWrapper
-             });
+            //request.size = this.indexVM.pageSize;
+            //request.from = this.indexVM.pageSize * (this.indexVM.page-1);
 
-             console.log(res);*/
-            var defer = this.q.defer();
-            var res = this.http.post('http://api.datatoknowledge.it/search/search', queryWrapper).success(function (data) {
-                    defer.resolve(data);
-                }
-            ).error(function (error) {
-                defer.reject(error);
+            var preReq = JSON.parse(JSON.stringify(request));
+            preReq['size'] = this.indexVM.pageSize;
+            preReq['from'] = this.indexVM.pageSize * (this.indexVM.page - 1);
+            queryWrapper.request = preReq;
+
+            //var res = this.es.client.search({
+            //    index: this.indexVM.index,
+            //    size: this.indexVM.pageSize,
+            //    from: this.indexVM.pageSize * (this.indexVM.page-1),
+            //    body: request
+            //});
+            //
+            //console.log(res);
+
+            var res = this.http.post(this.esHost, queryWrapper);
+            var self = this;
+            var rejection = this.q.defer();
+
+            res.then(function (response) {
+                    return (response.data);
+                },
+                function (aborted) {
+                    return self.q.reject(aborted);
+                });
+
+
+            res['abort'] = function () {
+                rejection.resolve();
+            };
+
+            res.finally(function () {
+                res['abort'] = self.angular.noop;
+                rejection = request = res = null;
+
             });
 
-            console.log(res);
-
-            return defer.promise;
+            return res;
         }
 
 
@@ -162,7 +187,7 @@ module elasticui.controllers {
             this.searchPromise.then((body) => {
                 this.searchPromise = null;
                 this.indexVM.error = null;
-                this.onResult(body);
+                this.onResult(body.data);
             }, (err) => {
                 if (this.searchPromise) { // if set to null it was aborted (for simple client)
                     this.searchPromise = null;
@@ -180,7 +205,7 @@ module elasticui.controllers {
             this.refreshPromise.then((body) => {
                 this.refreshPromise = null;
                 this.indexVM.error = null;
-                this.onResult(body, softRefresh);
+                this.onResult(body.data, softRefresh);
             }, (err) => {
                 if (this.refreshPromise) { // if set to null it was aborted (for simple client)
                     this.refreshPromise = null;

@@ -598,7 +598,7 @@ var elasticui;
     var controllers;
     (function (controllers) {
         var IndexController = (function () {
-            function IndexController($scope, $timeout, $window, es, $rootScope, $http, $q) {
+            function IndexController($scope, $timeout, $window, es, $rootScope, $http, $q, euiHost) {
                 var _this = this;
                 this.filters = new elasticui.util.FilterCollection();
                 this.indexVM = {
@@ -628,6 +628,7 @@ var elasticui;
                 this.$rootScope = $rootScope;
                 this.http = $http;
                 this.q = $q;
+                this.esHost = euiHost || '';
                 $scope.indexVM = this.indexVM;
                 $scope.ejs = $window.ejs; // so we can use ejs in attributes etc. TODO: better to have a ejs service instead of loading from window
                 $scope.filters = this.filters;
@@ -691,23 +692,36 @@ var elasticui;
                     request.highlight(this.indexVM.highlight);
                 }
                 //console.log("request to ES");
-                queryWrapper.request = request;
-                /*var res = this.es.client.search({
-                 index: this.indexVM.index,
-                 size: this.indexVM.pageSize,
-                 from: this.indexVM.pageSize * (this.indexVM.page-1),
-                 body: queryWrapper
-                 });
-    
-                 console.log(res);*/
-                var defer = this.q.defer();
-                var res = this.http.post('http://api.datatoknowledge.it/search/search', queryWrapper).success(function (data) {
-                    defer.resolve(data);
-                }).error(function (error) {
-                    defer.reject(error);
+                //request.size = this.indexVM.pageSize;
+                //request.from = this.indexVM.pageSize * (this.indexVM.page-1);
+                var preReq = JSON.parse(JSON.stringify(request));
+                preReq['size'] = this.indexVM.pageSize;
+                preReq['from'] = this.indexVM.pageSize * (this.indexVM.page - 1);
+                queryWrapper.request = preReq;
+                //var res = this.es.client.search({
+                //    index: this.indexVM.index,
+                //    size: this.indexVM.pageSize,
+                //    from: this.indexVM.pageSize * (this.indexVM.page-1),
+                //    body: request
+                //});
+                //
+                //console.log(res);
+                var res = this.http.post(this.esHost, queryWrapper);
+                var self = this;
+                var rejection = this.q.defer();
+                res.then(function (response) {
+                    return (response.data);
+                }, function (aborted) {
+                    return self.q.reject(aborted);
                 });
-                console.log(res);
-                return defer.promise;
+                res['abort'] = function () {
+                    rejection.resolve();
+                };
+                res.finally(function () {
+                    res['abort'] = self.angular.noop;
+                    rejection = request = res = null;
+                });
+                return res;
             };
             IndexController.prototype.onError = function (err) {
                 this.$rootScope.$broadcast('eui-search-error', err);
@@ -733,7 +747,7 @@ var elasticui;
                 this.searchPromise.then(function (body) {
                     _this.searchPromise = null;
                     _this.indexVM.error = null;
-                    _this.onResult(body);
+                    _this.onResult(body.data);
                 }, function (err) {
                     if (_this.searchPromise) {
                         _this.searchPromise = null;
@@ -752,7 +766,7 @@ var elasticui;
                 this.refreshPromise.then(function (body) {
                     _this.refreshPromise = null;
                     _this.indexVM.error = null;
-                    _this.onResult(body, softRefresh);
+                    _this.onResult(body.data, softRefresh);
                 }, function (err) {
                     if (_this.refreshPromise) {
                         _this.refreshPromise = null;
@@ -768,7 +782,7 @@ var elasticui;
                 }
                 this.indexVM.loading = false;
             };
-            IndexController.$inject = ['$scope', '$timeout', '$window', 'es', '$rootScope', '$http', '$q'];
+            IndexController.$inject = ['$scope', '$timeout', '$window', 'es', '$rootScope', '$http', '$q', 'euiHost'];
             return IndexController;
         })();
         controllers.IndexController = IndexController;
